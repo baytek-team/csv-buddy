@@ -105,12 +105,12 @@ Class CsvBuddy {
 			fputcsv($handle, $this->headers, $this->delimiter);
 		}
 
-		foreach ($this->store as $index => $actualData)
+		for($x = 0; $x <= $this->row; $x++)
 		{
 			$row = [];
 			foreach ($this->columns as $column)
 			{
-				array_push($row, isset($this->store[$index][$column]) ? $this->store[$index][$column] : null);
+				array_push($row, isset($this->store[$x][$column]) ? $this->store[$x][$column] : null);
 			}
 
 			fputcsv($handle, $row, $this->delimiter);
