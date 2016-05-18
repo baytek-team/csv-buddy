@@ -1,0 +1,20 @@
+{
+    "name": "baytek/csv-buddy",
+    "description": "CSV creation tools",
+    "type": "Library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Yvon Viger",
+            "email": "yvon@baytek.ca"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Baytek\\": "lib/"
+        }
+    }
+}
