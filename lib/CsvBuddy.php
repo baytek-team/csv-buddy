@@ -89,7 +89,7 @@ Class CsvBuddy {
 	 */
 	public function __set($column, $value)
 	{
-		$this->store($column, $value);
+		$this->put($column, $value);
 	}
 
 	/**
@@ -98,8 +98,12 @@ Class CsvBuddy {
 	 */
 	public function render()
 	{
+		$this->print_table($this->store);
+
 		ob_start();
+
 		$handle = fopen('php://output', 'r+');
+
 		if (count($this->headers))
 		{
 			fputcsv($handle, $this->headers, $this->delimiter);
@@ -108,15 +112,45 @@ Class CsvBuddy {
 		for($x = 0; $x <= $this->row; $x++)
 		{
 			$row = [];
-			foreach ($this->columns as $column)
+			foreach($this->columns as $column)
 			{
-				array_push($row, isset($this->store[$x][$column]) ? $this->store[$x][$column] : null);
+				if(!isset($this->store[$x][$column])) {
+					$value = $this->defaults($column, $x);
+				}
+				else {
+					$value = $this->store[$x][$column];
+				}
+
+				array_push($row, $value);
 			}
 
 			fputcsv($handle, $row, $this->delimiter);
 		}
 
 		return ob_get_clean();
+	}
+
+	/**
+	 * Default will check based on the column name if there is a default value if non is set
+	 * @param  [type] $column [description]
+	 * @return mixed         [description]
+	 */
+	public function defaults($column, $row)
+	{
+		if(isset($this->schema[$column]['default'])) {
+
+			$default = $this->schema[$column]['default'];
+
+			if(is_callable($default)) {
+				return $default($row);
+			}
+			else {
+				return $default;
+			}
+		}
+		else {
+			return null;
+		}
 	}
 
 	/**
@@ -129,7 +163,7 @@ Class CsvBuddy {
 		return array_keys($array) === range(0, count($array) - 1);
 	}
 
-	private function store($column, $value)
+	private function put($column, $value)
 	{
 		if(!empty($this->store[$this->row][$column])) {
 			throw new Exception('Cell already contains data, you cannot re-populate cells for the time being');
@@ -148,6 +182,12 @@ Class CsvBuddy {
 	{
 		//Add some checks to ensure that the current row isn't empty, causing empty rows
 		$this->row ++;
+
+		foreach($this->columns as $column)
+		{
+			$this->store[$this->row][$column] = null;
+		}
+
 		return $this; // Allow for method chaining
 	}
 
@@ -165,11 +205,11 @@ Class CsvBuddy {
 	// 	$sequential = $this->isSequential($data);
 
 	// 	if($sequential) {
-	// 		$this->store($data[0], $data[1])->endRowCheck();
+	// 		$this->put($data[0], $data[1])->endRowCheck();
 	// 	}
 	// 	else {
 	// 		foreach($data as $column => $value) {
-	// 			$this->store($column, $value);
+	// 			$this->put($column, $value);
 	// 		}
 	// 	}
 
@@ -179,14 +219,14 @@ Class CsvBuddy {
 
 	public function setColumn($column, $value)
 	{
-		$this->store($column, $value);
+		$this->put($column, $value);
 		return $this;
 	}
 
 	public function addRow($columns)
 	{
 		foreach($columns as $column => $value) {
-			$this->store($column, $value);
+			$this->put($column, $value);
 		}
 
 		$this->endRow();
