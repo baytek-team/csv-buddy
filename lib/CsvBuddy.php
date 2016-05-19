@@ -64,19 +64,23 @@ class CsvBuddy
         // Check to see that this is a sequential array and not a named key array
         $sequential = $this->isSequential($schema);
 
-        if ($sequential) {
-            foreach ($schema as $column) {
-                array_push($this->headers, $column);
-                array_push($this->columns, $column);
-                $this->store[] = [];
-            }
-        } else {
+        // if ($sequential) {
+        //     foreach ($schema as $column) {
+        //         array_push($this->headers, $column);
+        //         array_push($this->columns, $column);
+        //         $this->store[] = [];
+        //     }
+        // } else {
             foreach ($schema as $column => $parameters) {
+            	if(is_integer($column)) {
+            		$column = $parameters;
+            	}
+
                 array_push($this->headers, isset($parameters['header']) ? $parameters['header'] : $column);
                 array_push($this->columns, $column);
-                $this->store[] = [];
+                // $this->store[] = [];
             }
-        }
+        // }
     }
 
     /**
@@ -126,7 +130,7 @@ class CsvBuddy
             $this->put($column, $value);
         }
 
-        $this->endRow();
+        $this->newRow();
 
         return $this;
         // return call_user_func_array(array($this, 'fill'), func_get_args());
@@ -142,7 +146,9 @@ class CsvBuddy
      */
     private function put($column, $value)
     {
-        $this->validate($column, $value);
+        if(! $this->validate($column, $value)) {
+        	throw new Exception("Data not valid: \"$value\"");
+        }
 
         if (!empty($this->store[$this->row][$column])) {
             throw new Exception('Cell already contains data, you cannot re-populate cells for the time being');
@@ -223,17 +229,24 @@ class CsvBuddy
     }
 
     /**
-     * endRow will iterate through all of the columns and null fill each unfilled column and increment the row value.
+     * newRow will iterate through all of the columns and null fill each unfilled column and increment the row value.
      *
      * @return $this for chaining
      */
-    public function endRow()
+    public function newRow()
     {
         //Add some checks to ensure that the current row isn't empty, causing empty rows
         ++$this->row;
 
         foreach ($this->columns as $column) {
-            $this->store[$this->row][$column] = null;
+        	$this->store[$this->row][$column] = null;
+
+        	if($this->schema[$column]['required'] && $this->row - 1 > 0) {
+        		if(is_null($this->store[$this->row - 1][$column])) {
+        			throw new Exception("Cannot close row. Column \"$column\" is empty, this field is required.");
+        		}
+        	}
+
         }
 
         return $this; // Allow for method chaining
@@ -241,8 +254,26 @@ class CsvBuddy
 
     public function validate($column, $value)
     {
-        return true;
+    	if(isset($this->schema[$column]['regex'])) {
+    		return preg_match($this->schema[$column]['regex'], $value);
+    	}
+
+    	if(isset($this->schema[$column]['type'])) {
+    		return gettype($value) === $this->schema[$column]['type'];
+    	}
+
+    	return true;
     }
+
+    // public function query($column, $value)
+    // {
+    // 	if (is_callable($value)) {
+    // 	    return $value($row);
+    // 	} else {
+    // 	    return $value;
+    // 	}
+    //     return true;
+    // }
 
     ///////////////////////////////////////////////////////////////////////////
     /// DEBUGGING FUNCTIONS ///////////////////////////////////////////////////

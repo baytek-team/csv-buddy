@@ -3,6 +3,7 @@
     "description": "CSV creation tools",
     "type": "Library",
     "license": "MIT",
+    "version": "1.0.0-dev",
     "authors": [
         {
             "name": "Yvon Viger",
