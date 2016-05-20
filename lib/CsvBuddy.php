@@ -126,11 +126,11 @@ class CsvBuddy
      */
     public function addRow($columns)
     {
+        $this->newRow();
+
         foreach ($columns as $column => $value) {
             $this->put($column, $value);
         }
-
-        $this->newRow();
 
         return $this;
         // return call_user_func_array(array($this, 'fill'), func_get_args());
@@ -241,7 +241,7 @@ class CsvBuddy
         foreach ($this->columns as $column) {
         	$this->store[$this->row][$column] = null;
 
-        	if($this->schema[$column]['required'] && $this->row - 1 > 0) {
+        	if(isset($this->schema[$column]['required']) && $this->schema[$column]['required'] && $this->row - 1 > 0) {
         		if(is_null($this->store[$this->row - 1][$column])) {
         			throw new Exception("Cannot close row. Column \"$column\" is empty, this field is required.");
         		}
