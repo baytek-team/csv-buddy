@@ -60,7 +60,7 @@ class CsvBuddy
      */
     public function __construct(array $schema)
     {
-        //Save the schema
+        // Save the schema
         $this->schema = $schema;
 
         // Check to see that this is a sequential array and not a named key array
@@ -88,6 +88,7 @@ class CsvBuddy
         $headers = str_getcsv(array_shift($csv), $this->delimiter);
         $columns = count($headers);
 
+        // Check that the number of columns matches the schema headers
         if (count($this->schema) !== $columns) {
             throw new ErrorException('Supplied CSV columns does not match schema columns', 0, E_USER_ERROR);
         }
@@ -95,13 +96,16 @@ class CsvBuddy
         // Make sure that all of the headers match up, and if they are using a named column, save the column key instead as headers
         $i = 0;
         foreach ($this->schema as $column => $parameters) {
-            //Check if the column is an int, if so we know its not a named key
+            // Check if the column is an int, if so we know its not a named key
             if (is_integer($column)) {
+                // Check if the header matches the schema, if not this is an error
                 if (is_string($parameters) && $headers[$i] != $parameters) {
                     throw new ErrorException("Column \"$parameters\" does not match \"{$headers[$i]}\".", 0, E_USER_ERROR);
                 }
             } elseif ($headers[$i] != $column) {
+                // Check if the header schema value was set
                 if (isset($parameters['header'])) {
+                    // Check that the header matches the schema header, if so remap
                     if ($headers[$i] == $parameters['header']) {
                         $headers[$i] = $column;
                     } else {
@@ -119,6 +123,8 @@ class CsvBuddy
             $row = str_getcsv($row, $this->delimiter);
 
             $this->newRow();
+
+            // Loop though the columns and set their data into the store
             for ($i = 0; $i < $columns; ++$i) {
                 $this->put($headers[$i], $row[$i], false);
             }
@@ -214,24 +220,30 @@ class CsvBuddy
     {
         ob_start();
 
+        // Create a local handle
         $handle = fopen('php://output', 'r+');
 
         if (count($this->headers)) {
             fputcsv($handle, $this->headers, $this->delimiter);
         }
 
+        // Loop though the rows
         for ($x = 0; $x <= $this->row; ++$x) {
+            // Use local array to ensure proper ordering
             $row = [];
+            // Loop though the columns
             foreach ($this->columns as $column) {
+                // If empty use the default value if it exists
                 if (!isset($this->store[$x][$column])) {
                     $value = $this->defaults($column, $x);
                 } else {
                     $value = $this->store[$x][$column];
                 }
 
+                // Push the value to the local array
                 array_push($row, $value);
             }
-
+            // Put the CSV content
             fputcsv($handle, $row, $this->delimiter);
         }
 
@@ -288,9 +300,10 @@ class CsvBuddy
         foreach ($this->columns as $column) {
             $this->store[$this->row][$column] = null;
 
-            if (isset($this->schema[$column]['required']) && $this->schema[$column]['required'] && $this->row - 1 > 0) {
+            // Check the rows to see if there are required fields and throw user error if something is missing
+            if (!empty($this->schema[$column]['required']) && $this->row - 1 > 0) {
                 if (is_null($this->store[$this->row - 1][$column])) {
-                    throw new ErrorException("Cannot close row. Column \"$column\" is empty, this field is required.", 0, E_ERROR);
+                    throw new ErrorException("Cannot close row. Column \"$column\" is empty, this field is required.", 0, E_USER_ERROR);
                 }
             }
         }
@@ -300,11 +313,12 @@ class CsvBuddy
 
     public function validate($column, $value)
     {
+        // Check for regular expression and return the match
         if (isset($this->schema[$column]['regex'])) {
             return preg_match($this->schema[$column]['regex'], $value);
         }
-
-        if (isset($this->schema[$column]['type'])) {
+        // Check the column type and return the match
+        elseif (isset($this->schema[$column]['type'])) {
             return gettype($value) === $this->schema[$column]['type'];
         }
 
