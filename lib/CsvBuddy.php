@@ -2,7 +2,7 @@
 
 namespace Baytek;
 
-use Exception;
+use ErrorException;
 
 /**
  * Class CsvBuddy.
@@ -52,7 +52,9 @@ class CsvBuddy
     protected $row = 0;
 
     /**
-     * CSV Buddy creation method.
+     * CSV Buddy constructor.
+     *
+     * The array passed here can be fairly complex,
      *
      * @param array $table Table Schema in named array format
      */
@@ -64,23 +66,63 @@ class CsvBuddy
         // Check to see that this is a sequential array and not a named key array
         $sequential = $this->isSequential($schema);
 
-        // if ($sequential) {
-        //     foreach ($schema as $column) {
-        //         array_push($this->headers, $column);
-        //         array_push($this->columns, $column);
-        //         $this->store[] = [];
-        //     }
-        // } else {
-            foreach ($schema as $column => $parameters) {
-            	if(is_integer($column)) {
-            		$column = $parameters;
-            	}
-
-                array_push($this->headers, isset($parameters['header']) ? $parameters['header'] : $column);
-                array_push($this->columns, $column);
-                // $this->store[] = [];
+        foreach ($schema as $column => $parameters) {
+            if (is_integer($column)) {
+                if (is_string($parameters) || is_array($parameters)) {
+                    $column = $parameters;
+                } else {
+                    throw new ErrorException("Schema not valid, $parameters is not expected.", 0, E_USER_ERROR);
+                }
             }
-        // }
+
+            array_push($this->headers, isset($parameters['header']) ? $parameters['header'] : $column);
+            array_push($this->columns, $column);
+        }
+
+        return $this;
+    }
+
+    public function load($file)
+    {
+        $csv = str_getcsv($file, "\n");
+        $headers = str_getcsv(array_shift($csv), $this->delimiter);
+        $columns = count($headers);
+
+        if (count($this->schema) !== $columns) {
+            throw new ErrorException('Supplied CSV columns does not match schema columns', 0, E_USER_ERROR);
+        }
+
+        // Make sure that all of the headers match up, and if they are using a named column, save the column key instead as headers
+        $i = 0;
+        foreach ($this->schema as $column => $parameters) {
+            //Check if the column is an int, if so we know its not a named key
+            if (is_integer($column)) {
+                if (is_string($parameters) && $headers[$i] != $parameters) {
+                    throw new ErrorException("Column \"$parameters\" does not match \"{$headers[$i]}\".", 0, E_USER_ERROR);
+                }
+            } elseif ($headers[$i] != $column) {
+                if (isset($parameters['header'])) {
+                    if ($headers[$i] == $parameters['header']) {
+                        $headers[$i] = $column;
+                    } else {
+                        throw new ErrorException("Column \"{$parameters['header']}\" does not match \"{$headers[$i]}\".", 0, E_USER_ERROR);
+                    }
+                } else {
+                    throw new ErrorException("Column \"$column\" does not match \"{$headers[$i]}\".", 0, E_USER_ERROR);
+                }
+            }
+
+            ++$i;
+        }
+
+        foreach ($csv as &$row) {
+            $row = str_getcsv($row, $this->delimiter);
+
+            $this->newRow();
+            for ($i = 0; $i < $columns; ++$i) {
+                $this->put($headers[$i], $row[$i], false);
+            }
+        }
     }
 
     /**
@@ -94,7 +136,7 @@ class CsvBuddy
     }
 
     /**
-     * Magic method for setting a column in the data store
+     * Magic method for setting a column in the data store.
      *
      * @param string $column Column to set
      * @param mixed  $value  Data to set into column
@@ -126,7 +168,7 @@ class CsvBuddy
      */
     public function addRow($columns)
     {
-        $this->newRow();
+        // $this->newRow();
 
         foreach ($columns as $column => $value) {
             $this->put($column, $value);
@@ -144,19 +186,21 @@ class CsvBuddy
      *
      * @return [type] [description]
      */
-    private function put($column, $value)
+    private function put($column, $value, $validate = true)
     {
-        if(! $this->validate($column, $value)) {
-        	throw new Exception("Data not valid: \"$value\"");
-        }
+        if ($validate) {
+            if (!$this->validate($column, $value)) {
+                throw new ErrorException("Data not valid: \"$value\"", 0, E_USER_ERROR);
+            }
 
-        if (!empty($this->store[$this->row][$column])) {
-            throw new Exception('Cell already contains data, you cannot re-populate cells for the time being');
+            if (!empty($this->store[$this->row][$column])) {
+                throw new ErrorException('Cell already contains data, you cannot re-populate cells for the time being', 0, E_WARNING);
+            }
         }
 
         $this->store[$this->row][$column] = $value;
 
-        return $this;
+        return true;
     }
 
     // $this->print_table($this->store);
@@ -217,7 +261,7 @@ class CsvBuddy
     }
 
     /**
-     * isSequential Checks to see if the array is sequential or is named keys
+     * isSequential Checks to see if the array is sequential or is named keys.
      *
      * @param array $array The array to check
      *
@@ -235,18 +279,20 @@ class CsvBuddy
      */
     public function newRow()
     {
-        //Add some checks to ensure that the current row isn't empty, causing empty rows
+        if (!isset($this->store[$this->row])) {
+            return $this;
+        }
+
         ++$this->row;
 
         foreach ($this->columns as $column) {
-        	$this->store[$this->row][$column] = null;
+            $this->store[$this->row][$column] = null;
 
-        	if(isset($this->schema[$column]['required']) && $this->schema[$column]['required'] && $this->row - 1 > 0) {
-        		if(is_null($this->store[$this->row - 1][$column])) {
-        			throw new Exception("Cannot close row. Column \"$column\" is empty, this field is required.");
-        		}
-        	}
-
+            if (isset($this->schema[$column]['required']) && $this->schema[$column]['required'] && $this->row - 1 > 0) {
+                if (is_null($this->store[$this->row - 1][$column])) {
+                    throw new ErrorException("Cannot close row. Column \"$column\" is empty, this field is required.", 0, E_ERROR);
+                }
+            }
         }
 
         return $this; // Allow for method chaining
@@ -254,15 +300,15 @@ class CsvBuddy
 
     public function validate($column, $value)
     {
-    	if(isset($this->schema[$column]['regex'])) {
-    		return preg_match($this->schema[$column]['regex'], $value);
-    	}
+        if (isset($this->schema[$column]['regex'])) {
+            return preg_match($this->schema[$column]['regex'], $value);
+        }
 
-    	if(isset($this->schema[$column]['type'])) {
-    		return gettype($value) === $this->schema[$column]['type'];
-    	}
+        if (isset($this->schema[$column]['type'])) {
+            return gettype($value) === $this->schema[$column]['type'];
+        }
 
-    	return true;
+        return true;
     }
 
     // public function query($column, $value)
