@@ -2,12 +2,14 @@
 
 namespace Baytek;
 
+use ArrayAccess;
 use ErrorException;
+use Iterator;
 
 /**
  * Class CsvBuddy.
  */
-class CsvBuddy
+class CsvBuddy implements Iterator, ArrayAccess
 {
     /**
      * CSV Delimiter.
@@ -60,6 +62,8 @@ class CsvBuddy
      */
     public function __construct(array $schema)
     {
+        $this->row = 0;
+
         // Save the schema
         $this->schema = $schema;
 
@@ -323,6 +327,48 @@ class CsvBuddy
         }
 
         return true;
+    }
+
+    //Iterator Methods
+    function rewind() {
+        $this->row = 0;
+    }
+
+    function current() {
+        return $this->store[$this->row];
+    }
+
+    function key() {
+        return $this->row;
+    }
+
+    function next() {
+        ++$this->row;
+    }
+
+    function valid() {
+        return isset($this->store[$this->row]);
+    }
+
+    // ArrayAccess Methods
+    public function offsetSet($offset, $value) {
+        if (is_null($offset)) {
+            $this->store[] = $value;
+        } else {
+            $this->store[$offset] = $value;
+        }
+    }
+
+    public function offsetExists($offset) {
+        return isset($this->store[$offset]);
+    }
+
+    public function offsetUnset($offset) {
+        unset($this->store[$offset]);
+    }
+
+    public function offsetGet($offset) {
+        return isset($this->store[$offset]) ? $this->store[$offset] : null;
     }
 
     // public function query($column, $value)
