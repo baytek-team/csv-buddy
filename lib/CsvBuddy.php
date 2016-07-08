@@ -5,11 +5,12 @@ namespace Baytek;
 use ArrayAccess;
 use ErrorException;
 use Iterator;
+use Countable;
 
 /**
  * Class CsvBuddy.
  */
-class CsvBuddy implements Iterator, ArrayAccess
+class CsvBuddy implements Iterator, ArrayAccess, Countable
 {
     /**
      * CSV Delimiter.
@@ -154,6 +155,18 @@ class CsvBuddy implements Iterator, ArrayAccess
     public function __set($column, $value)
     {
         $this->put($column, $value);
+    }
+
+
+    /**
+     * Magic method for setting a column in the data store.
+     *
+     * @param string $column Column to set
+     * @param mixed  $value  Data to set into column
+     */
+    public function __get($column)
+    {
+        return $this->store[$this->row][$column];
     }
 
     /**
@@ -350,7 +363,11 @@ class CsvBuddy implements Iterator, ArrayAccess
         return isset($this->store[$this->row]);
     }
 
-    // ArrayAccess Methods
+    /**
+     * Implements ArrayAccess Interface
+     *
+     * @param integer Return the number of rows
+     */
     public function offsetSet($offset, $value) {
         if (is_null($offset)) {
             $this->store[] = $value;
@@ -369,6 +386,16 @@ class CsvBuddy implements Iterator, ArrayAccess
 
     public function offsetGet($offset) {
         return isset($this->store[$offset]) ? $this->store[$offset] : null;
+    }
+
+    /**
+     * Implements countable interface
+     *
+     * @param integer Return the number of rows
+     */
+    public function count()
+    {
+        return count($this->store);
     }
 
     // public function query($column, $value)
