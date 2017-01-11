@@ -31,21 +31,21 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
      *
      * @var array
      */
-    protected $headers = [];
+    protected $headers = array();
 
     /**
      * CSV Column Names, not sure if required, we will see.
      *
      * @var array
      */
-    protected $columns = [];
+    protected $columns = array();
 
     /**
      * CSV Data Store.
      *
      * @var array
      */
-    protected $store = [];
+    protected $store = array();
 
     /**
      * Index of current row.
@@ -247,7 +247,7 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
         // Loop though the rows
         for ($x = 0; $x <= $this->row; ++$x) {
             // Use local array to ensure proper ordering
-            $row = [];
+            $row = array();
             // Loop though the columns
             foreach ($this->columns as $column) {
                 // If empty use the default value if it exists
