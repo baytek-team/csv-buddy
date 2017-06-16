@@ -129,10 +129,11 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
             }
         }
 
-        foreach ($csv as &$row) {
-            $row = str_getcsv($row, $this->delimiter);
-
+        // dd($this->headers);
+        foreach ($csv as $row) {
             $this->newRow();
+
+            $row = str_getcsv($row, $this->delimiter);
 
             // Loop though the columns and set their data into the store
             for ($i = 0; $i < $columns; ++$i) {
@@ -333,9 +334,9 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
      */
     public function newRow()
     {
-        if (!isset($this->store[$this->row])) {
-            return $this;
-        }
+        // if (!isset($this->store[$this->row])) {
+        //     return $this;
+        // }
 
         ++$this->row;
 
