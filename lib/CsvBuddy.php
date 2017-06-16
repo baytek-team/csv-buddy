@@ -54,8 +54,6 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
      */
     protected $row = 0;
 
-
-
     /**
      * CSV Buddy constructor.
      *
@@ -87,8 +85,6 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
             array_push($this->headers, isset($parameters['header']) ? $parameters['header'] : $column);
             array_push($this->columns, $column);
         }
-
-        return $this;
     }
 
     /**
@@ -334,11 +330,9 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
      */
     public function newRow()
     {
-        // if (!isset($this->store[$this->row])) {
-        //     return $this;
-        // }
-
-        ++$this->row;
+        if (isset($this->store[$this->row])) {
+            ++$this->row;
+        }
 
         foreach ($this->columns as $column) {
             $this->store[$this->row][$column] = null;
