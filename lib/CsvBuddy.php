@@ -54,15 +54,19 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
      */
     protected $row = 0;
 
+
+
     /**
      * CSV Buddy constructor.
      *
      * The array passed here can be fairly complex,
      *
      * @param array $table Table Schema in named array format
+     * @param boolean $skips skips setting
      */
     public function __construct(array $schema)
     {
+        // Set the internal column count to zero
         $this->row = 0;
 
         // Save the schema
@@ -87,6 +91,11 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
         return $this;
     }
 
+    /**
+     * [load description]
+     * @param  [type] $file [description]
+     * @return [type]       [description]
+     */
     public function load($file)
     {
         $csv = str_getcsv($file, "\n");
@@ -94,34 +103,30 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
         $columns = count($headers);
 
         // Check that the number of columns matches the schema headers
-        if (count($this->schema) !== $columns) {
-            throw new ErrorException('Supplied CSV columns does not match schema columns', 0, E_USER_ERROR);
-        }
+        // if (count($this->schema) !== $columns && !$skips) {
+        //     throw new ErrorException('Supplied CSV columns does not match schema columns', 0, E_USER_ERROR);
+        // }
 
         // Make sure that all of the headers match up, and if they are using a named column, save the column key instead as headers
-        $i = 0;
-        foreach ($this->schema as $column => $parameters) {
-            // Check if the column is an int, if so we know its not a named key
-            if (is_integer($column)) {
-                // Check if the header matches the schema, if not this is an error
-                if (is_string($parameters) && $headers[$i] != $parameters) {
-                    throw new ErrorException("Column \"$parameters\" does not match \"{$headers[$i]}\".", 0, E_USER_ERROR);
-                }
-            } elseif ($headers[$i] != $column) {
-                // Check if the header schema value was set
-                if (isset($parameters['header'])) {
-                    // Check that the header matches the schema header, if so remap
-                    if ($headers[$i] == $parameters['header']) {
-                        $headers[$i] = $column;
-                    } else {
-                        throw new ErrorException("Column \"{$parameters['header']}\" does not match \"{$headers[$i]}\".", 0, E_USER_ERROR);
+
+        foreach($headers as &$header) {
+            foreach ($this->schema as $column => $parameters) {
+                // Check if the column is an int, if so we know its not a named key
+                if (is_integer($column)) {
+                    // Check if the header matches the schema, if not this is an error
+                    // if (is_string($parameters) && $header != $parameters) {
+                    //     throw new ErrorException("Column \"$parameters\" does not match \"{$header}\".", 0, E_USER_ERROR);
+                    // }
+                } elseif ($header != $column) {
+                    // Check if the header schema value was set
+                    if(isset($parameters['header'])) {
+                        // Check that the header matches the schema header, if so remap
+                        if ($header == $parameters['header']) {
+                            $header = $column;
+                        }
                     }
-                } else {
-                    throw new ErrorException("Column \"$column\" does not match \"{$headers[$i]}\".", 0, E_USER_ERROR);
                 }
             }
-
-            ++$i;
         }
 
         foreach ($csv as &$row) {
@@ -131,7 +136,9 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
 
             // Loop though the columns and set their data into the store
             for ($i = 0; $i < $columns; ++$i) {
-                $this->put($headers[$i], $row[$i], false);
+                if(in_array($headers[$i], $this->columns)) {
+                    $this->put($headers[$i], $row[$i], false);
+                }
             }
         }
     }
@@ -143,7 +150,7 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
      */
     public function __toString()
     {
-        return $this->render();
+        return $this->toCsv();
     }
 
     /**
@@ -226,14 +233,32 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
         return true;
     }
 
-    // $this->print_table($this->store);
+    /**
+     * toJson method returns a JSON string of the store
+     * @return string JSON Result
+     */
+    public function toJson()
+    {
+        return json_encode($this->store);
+    }
+
+    /**
+     * Returns an HTML table of the store
+     * @return string HTML table
+     */
+    public function toHtml()
+    {
+        ob_start();
+        $this->print_table($this->store);
+        return ob_get_clean();
+    }
 
     /**
      * Creates the actual CSV file based on columns and rows sent.
      *
      * @return [string] CSV Result
      */
-    public function render()
+    public function toCsv()
     {
         ob_start();
 
@@ -328,6 +353,12 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
         return $this; // Allow for method chaining
     }
 
+    /**
+     * [validate description]
+     * @param  [type] $column [description]
+     * @param  [type] $value  [description]
+     * @return [type]         [description]
+     */
     public function validate($column, $value)
     {
         // Check for regular expression and return the match
@@ -343,22 +374,43 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
     }
 
     //Iterator Methods
+
+    /**
+     * [rewind description]
+     * @return [type] [description]
+     */
     function rewind() {
         $this->row = 0;
     }
 
+    /**
+     * [current description]
+     * @return [type] [description]
+     */
     function current() {
         return $this->store[$this->row];
     }
 
+    /**
+     * [key description]
+     * @return [type] [description]
+     */
     function key() {
         return $this->row;
     }
 
+    /**
+     * [next description]
+     * @return function [description]
+     */
     function next() {
         ++$this->row;
     }
 
+    /**
+     * [valid description]
+     * @return [type] [description]
+     */
     function valid() {
         return isset($this->store[$this->row]);
     }
@@ -376,14 +428,29 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
         }
     }
 
+    /**
+     * [offsetExists description]
+     * @param  [type] $offset [description]
+     * @return [type]         [description]
+     */
     public function offsetExists($offset) {
         return isset($this->store[$offset]);
     }
 
+    /**
+     * [offsetUnset description]
+     * @param  [type] $offset [description]
+     * @return [type]         [description]
+     */
     public function offsetUnset($offset) {
         unset($this->store[$offset]);
     }
 
+    /**
+     * [offsetGet description]
+     * @param  [type] $offset [description]
+     * @return [type]         [description]
+     */
     public function offsetGet($offset) {
         return isset($this->store[$offset]) ? $this->store[$offset] : null;
     }
@@ -400,11 +467,11 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
 
     // public function query($column, $value)
     // {
-    // 	if (is_callable($value)) {
-    // 	    return $value($row);
-    // 	} else {
-    // 	    return $value;
-    // 	}
+    //  if (is_callable($value)) {
+    //      return $value($row);
+    //  } else {
+    //      return $value;
+    //  }
     //     return true;
     // }
 
