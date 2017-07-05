@@ -94,7 +94,7 @@ class CsvBuddy implements Iterator, ArrayAccess, Countable
      */
     public function load($file)
     {
-        $csv = str_getcsv($file, "\n");
+        $csv = str_getcsv($file, "\n", '^');
         $headers = str_getcsv(array_shift($csv), $this->delimiter);
         $columns = count($headers);
 
